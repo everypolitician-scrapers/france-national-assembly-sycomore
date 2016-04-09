@@ -76,6 +76,14 @@ def scrape_person(url, data)
     start_date, end_date = m.css('b').remove.text.split(/ - /, 2).map { |d| date_from(d) } 
     area, group = m.text.sub(/^\s*:\s*/, '').split(/ - /, 2).map(&:tidy)
 
+    # TODO store this data
+    if group.to_s.downcase.include? 'réélu'
+      warn group.to_s.cyan
+      group.sub!(/réélu.*/i, '')
+      group.sub!(/\s*\-\s*$/, '')
+      warn group.to_s.yellow
+    end
+
     if end_date.to_s.empty?
       term_id = "14"
     else
