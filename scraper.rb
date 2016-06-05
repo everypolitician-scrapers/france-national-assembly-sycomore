@@ -78,10 +78,10 @@ def scrape_person(url, data)
 
     # TODO store this data
     if group.to_s.downcase.include? 'réélu'
-      warn group.to_s.cyan
+      old_group = group.dup
       group.sub!(/réélu.*/i, '')
       group.sub!(/\s*\-\s*$/, '')
-      warn group.to_s.yellow
+      warn "  #{old_group} → #{group}"
     end
 
     if end_date.to_s.empty?
