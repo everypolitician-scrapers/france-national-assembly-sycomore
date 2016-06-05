@@ -37,12 +37,21 @@ class String
 end
 
 def noko_for(url)
-  Nokogiri::HTML(open(url).read) rescue nil
+  Nokogiri::HTML(open(url).read) rescue binding.pry
 end
 
-def date_from(str)
+MONTHS = %w(nil janvier février mars avril mai juin juillet août septembre octobre novembre décembre)
+def date_from_text(str)
   return if str.to_s.empty?
-  Date.parse(str) rescue ''
+  parts = str.split(/\s+/)
+  month = MONTHS.find_index(parts[1]) || binding.pry
+  return sprintf '%d-%02d-%02d' % [parts[2], month, parts[0].to_i] rescue binding.pry
+end
+
+def date_from_dmy(str)
+  return if str.to_s.empty?
+  parts = str.split(/\//)
+  return sprintf '%s-%s-%s' % parts.reverse
 end
 
 def scrape_term(term)
@@ -57,11 +66,11 @@ def scrape_term(term)
     data = { 
       id: url[/num_dept=(\d+)/, 1],
       name: td[0].text.tidy,
-      birth_date: date_from(td[1].text.tidy).to_s,
-      death_date: date_from(td[2].text.tidy).to_s,
+      birth_date: date_from_dmy(td[1].text.tidy).to_s,
+      death_date: date_from_dmy(td[2].text.tidy).to_s,
       term: term,
       source: url,
-    }
+    } rescue binding.pry
     scrape_person(url, data) 
   end
 end
@@ -69,36 +78,53 @@ end
 def scrape_person(url, data)
   noko = noko_for(url) or return
   @seen << url
-  unless (img = noko.css('img.deputy-profile-picture/@src').text).empty?
+  unless (img = noko.css('.deputes-image img/@src').text).empty?
     data[:image] = URI.join(url, img).to_s
   end
-  noko.css('#assemblee p').reject { |p| p.text.to_s.empty? }.each do |m|
-    start_date, end_date = m.css('b').remove.text.split(/ - /, 2).map { |d| date_from(d) } 
-    area, group = m.text.sub(/^\s*:\s*/, '').split(/ - /, 2).map(&:tidy)
+  noko.css('#mandats_an dl').each do |m|
+    dates  = m.xpath('.//dt[contains(., "Mandat")]/following-sibling::dd[1]').text.tidy
+    dept   = m.xpath('.//dt[contains(., "Département")]/following-sibling::dd[1]').text.tidy
+    groupe = m.xpath('.//dt[contains(., "Groupe")]/following-sibling::dd[1]').text.tidy
+    if (matches = dates.match(/Du (\d+(?:er)? [[:alpha:]]+ \d+) au (\d+(?:er)? [[:alpha:]]+ \d+)/i).to_a).any?
+      start_date = date_from_text(matches[1])
+      end_date   = date_from_text(matches[2])
+    elsif (matches = dates.match(/Depuis le (\d+(?:er)? [[:alpha:]]+ \d+) \(mandat en cours\)/i).to_a).any?
+      start_date = date_from_text(matches[1])
+    else
+      if  m.xpath('preceding::h3').text == 'Présidence(s)'
+        # warn "Skipping Présidence(s)"
+        next 
+      end
+      warn "No dates in #{dates}"
+    end
 
     # TODO store this data
-    if group.to_s.downcase.include? 'réélu'
-      old_group = group.dup
-      group.sub!(/réélu.*/i, '')
-      group.sub!(/\s*\-\s*$/, '')
-      warn "  #{old_group} → #{group}"
+    if groupe.to_s.downcase.include? 'réélu'
+      old_groupe = groupe.dup
+      groupe.sub!(/réélu.*/i, '')
+      groupe.sub!(/\s*\-\s*$/, '')
+      warn "  #{old_groupe} → #{groupe}"
     end
 
     if end_date.to_s.empty?
       term_id = "14"
     else
-      midpoint = (start_date + (start_date..end_date).count / 2).to_s
+      midpoint = (Date.parse(start_date) + (Date.parse(start_date)..Date.parse(end_date)).count / 2).to_s
       term_id = @terms.find { |t| (t[:start_date] < midpoint) && ((t[:end_date] || '9999-99-99') > midpoint) }[:id] rescue nil
-      next unless term_id
+      unless term_id
+        warn "No term for #{start_date} - #{end_date}" 
+        next 
+      end
     end
 
     tdata = data.merge({ 
       term: term_id,
       start_date: start_date.to_s,
       end_date: end_date.to_s,
-      area: area,
-      faction: group || '',
+      area: dept,
+      faction: groupe || '',
     })
+    # warn tdata
     ScraperWiki.save_sqlite([:id, :term, :faction, :start_date], tdata)
   end
 end
