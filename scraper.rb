@@ -37,7 +37,13 @@ class String
 end
 
 def noko_for(url)
-  Nokogiri::HTML(open(url).read) rescue binding.pry
+  begin
+    noko = Nokogiri::HTML(open(url).read)
+  rescue => e
+    warn "Can't open #{url}: #{e}"
+    return
+  end
+  return noko
 end
 
 MONTHS = %w(nil janvier février mars avril mai juin juillet août septembre octobre novembre décembre)
@@ -55,7 +61,7 @@ def date_from_dmy(str)
 end
 
 def scrape_term(term)
-  source = "http://www.assemblee-nationale.fr/sycomore/result.asp?choixordre=chrono&legislature=#{term}" 
+  source = "http://www.assemblee-nationale.fr/sycomore/result.asp?choixordre=chrono&legislature=#{term}"
   warn source
   noko = noko_for(source)
   noko.css('div#corps_tableau table').xpath('.//tr[td]').each do |tr|
@@ -63,7 +69,7 @@ def scrape_term(term)
     url = URI.join(source, td[0].css('a/@href').text).to_s
     next if @seen.include? url
 
-    data = { 
+    data = {
       id: url[/num_dept=(\d+)/, 1],
       name: td[0].text.tidy,
       birth_date: date_from_dmy(td[1].text.tidy).to_s,
@@ -71,7 +77,7 @@ def scrape_term(term)
       term: term,
       source: url,
     } rescue binding.pry
-    scrape_person(url, data) 
+    scrape_person(url, data)
   end
 end
 
@@ -93,7 +99,7 @@ def scrape_person(url, data)
     else
       if  m.xpath('preceding::h3').text == 'Présidence(s)'
         # warn "Skipping Présidence(s)"
-        next 
+        next
       end
       warn "No dates in #{dates}"
     end
@@ -112,12 +118,12 @@ def scrape_person(url, data)
       midpoint = (Date.parse(start_date) + (Date.parse(start_date)..Date.parse(end_date)).count / 2).to_s
       term_id = @terms.find { |t| (t[:start_date] < midpoint) && ((t[:end_date] || '9999-99-99') > midpoint) }[:id] rescue nil
       unless term_id
-        warn "No term for #{start_date} - #{end_date}" 
-        next 
+        warn "No term for #{start_date} - #{end_date}"
+        next
       end
     end
 
-    tdata = data.merge({ 
+    tdata = data.merge({
       term: term_id,
       start_date: start_date.to_s,
       end_date: end_date.to_s,
