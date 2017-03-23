@@ -2,12 +2,12 @@
 # encoding: utf-8
 # frozen_string_literal: true
 
-require 'colorize'
 require 'csv'
 require 'nokogiri'
 require 'pry'
 require 'scraperwiki'
 require 'set'
+
 require 'open-uri/cached'
 OpenURI::Cache.cache_path = '.cache'
 
