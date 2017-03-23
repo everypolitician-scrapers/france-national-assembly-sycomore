@@ -134,4 +134,4 @@ def scrape_person(url, data)
   end
 end
 
-(46..59).to_a.reverse_each { |termid| scrape_term(termid) }
+(58..60).to_a.reverse_each { |termid| scrape_term(termid) }
