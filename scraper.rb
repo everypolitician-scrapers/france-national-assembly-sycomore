@@ -129,9 +129,9 @@ def scrape_person(url, data)
                        end_date:   end_date.to_s,
                        area:       dept,
                        faction:    groupe || '')
-    warn tdata
     ScraperWiki.save_sqlite(%i(id term faction start_date), tdata)
   end
 end
 
+ScraperWiki.sqliteexecute('DROP TABLE data') rescue nil
 (58..60).to_a.reverse_each { |termid| scrape_term(termid) }
