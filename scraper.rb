@@ -3,9 +3,9 @@
 # frozen_string_literal: true
 
 require 'csv'
-require 'nokogiri'
 require 'pry'
 require 'scraperwiki'
+require 'scraped'
 require 'set'
 
 require 'open-uri/cached'
@@ -30,12 +30,6 @@ id,name,start_date,end_date,wikidata
 2,IIe législature de la Cinquième République,1962-12-06,1967-04-02,Q3146705
 1,Ire législature de la Cinquième République,1958-12-09,1962-10-09,Q3154303
 tdcsv
-
-class String
-  def tidy
-    gsub(/[[:space:]]+/, ' ').strip
-  end
-end
 
 def noko_for(url)
   begin
