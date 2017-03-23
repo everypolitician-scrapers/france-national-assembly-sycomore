@@ -1,5 +1,6 @@
 #!/bin/env ruby
 # encoding: utf-8
+# frozen_string_literal: true
 
 require 'colorize'
 require 'csv'
@@ -32,7 +33,7 @@ tdcsv
 
 class String
   def tidy
-    self.gsub(/[[:space:]]+/, ' ').strip
+    gsub(/[[:space:]]+/, ' ').strip
   end
 end
 
@@ -43,10 +44,10 @@ def noko_for(url)
     warn "Can't open #{url}: #{e}"
     return
   end
-  return noko
+  noko
 end
 
-MONTHS = %w(nil janvier février mars avril mai juin juillet août septembre octobre novembre décembre)
+MONTHS = %w(nil janvier février mars avril mai juin juillet août septembre octobre novembre décembre).freeze
 def date_from_text(str)
   return if str.to_s.empty?
   parts = str.split(/\s+/)
@@ -57,7 +58,7 @@ end
 def date_from_dmy(str)
   return if str.to_s.empty?
   parts = str.split(/\//)
-  return sprintf '%s-%s-%s' % parts.reverse
+  sprintf '%s-%s-%s' % parts.reverse
 end
 
 def scrape_term(term)
@@ -70,12 +71,12 @@ def scrape_term(term)
     next if @seen.include? url
 
     data = {
-      id: url[/num_dept=(\d+)/, 1],
-      name: td[0].text.tidy,
+      id:         url[/num_dept=(\d+)/, 1],
+      name:       td[0].text.tidy,
       birth_date: date_from_dmy(td[1].text.tidy).to_s,
       death_date: date_from_dmy(td[2].text.tidy).to_s,
-      term: term,
-      source: url,
+      term:       term,
+      source:     url,
     } rescue binding.pry
     scrape_person(url, data)
   end
@@ -97,14 +98,14 @@ def scrape_person(url, data)
     elsif (matches = dates.match(/Depuis le (\d+(?:er)? [[:alpha:]]+ \d+) \(mandat en cours\)/i).to_a).any?
       start_date = date_from_text(matches[1])
     else
-      if  m.xpath('preceding::h3').text == 'Présidence(s)'
-        # warn "Skipping Présidence(s)"
+      if m.xpath('preceding::h3').text == 'Présidence(s)'
+        #  warn "Skipping Présidence(s)"
         next
       end
       warn "No dates in #{dates}"
     end
 
-    # TODO store this data
+    # TODO: store this data
     if groupe.to_s.downcase.include? 'réélu'
       old_groupe = groupe.dup
       groupe.sub!(/réélu.*/i, '')
@@ -113,7 +114,7 @@ def scrape_person(url, data)
     end
 
     if end_date.to_s.empty?
-      term_id = "14"
+      term_id = '14'
     else
       midpoint = (Date.parse(start_date) + (Date.parse(start_date)..Date.parse(end_date)).count / 2).to_s
       term_id = @terms.find { |t| (t[:start_date] < midpoint) && ((t[:end_date] || '9999-99-99') > midpoint) }[:id] rescue nil
@@ -123,15 +124,13 @@ def scrape_person(url, data)
       end
     end
 
-    tdata = data.merge({
-      term: term_id,
-      start_date: start_date.to_s,
-      end_date: end_date.to_s,
-      area: dept,
-      faction: groupe || '',
-    })
-    # warn tdata
-    ScraperWiki.save_sqlite([:id, :term, :faction, :start_date], tdata)
+    tdata = data.merge(term:       term_id,
+                       start_date: start_date.to_s,
+                       end_date:   end_date.to_s,
+                       area:       dept,
+                       faction:    groupe || '')
+    warn tdata
+    ScraperWiki.save_sqlite(%i(id term faction start_date), tdata)
   end
 end
 
